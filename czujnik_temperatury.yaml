@@ -1,0 +1,119 @@
+esphome:
+  name: esp-czujnik-temperatury
+  friendly_name: Czujnik temperatury
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: arduino
+
+web_server:
+  port: 80
+
+# Enable logging
+logger:
+  level: debug
+
+debug:
+  update_interval: 5s
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "qIJLuZCKM4oeCKllXkk2S1s7PcQ02AOAVsSc3zindI4="
+
+ota:
+
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "ESPHOME_czujnik_temperatury"
+    password: "19922991"
+
+captive_portal:
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: 'IP'
+      icon: mdi:wifi
+    ssid:
+      name: 'Nazwa sieci'
+      icon: mdi:wifi-strength-2
+
+i2c:
+  sda: GPIO2
+  scl: GPIO1
+
+time:
+  - platform: sntp
+    on_time:
+      - seconds: 0
+        minutes: 0
+        hours: 22
+        then:
+          - lambda: |-
+              id(lcd).no_backlight();
+      - seconds: 0
+        minutes: 0
+        hours: 6
+        then:
+          - lambda: |-
+              id(lcd).backlight();    
+button:
+  - platform: restart
+    name: "Restart"
+
+switch:
+  - platform: template
+    id: backlight
+    icon: mdi:flash
+    name: "Podświetlenie"
+    optimistic: true
+    on_turn_on:
+    - lambda: |-
+        id(lcd).backlight();
+    on_turn_off:
+    - lambda: |-
+        id(lcd).no_backlight();
+
+
+
+display:
+  - platform: lcd_pcf8574
+    dimensions: 20x4
+    address: 0x27
+    id: lcd
+    lambda: |-
+      it.printf(0, 0, "Temperatura: %.1f %cC", id(temperatura).state, 0xDF);
+      it.printf(0, 2, "Wilgotnosc: %.0f %%", id(wilgotnosc).state);
+
+sensor:
+  - platform: dht
+    id: esp_sensor
+    model: DHT11
+    pin: GPIO19
+    temperature:
+      name: "Temperatura"
+      id: temperatura
+      on_raw_value:
+        then:
+        - lambda: |-
+            id(lcd).printf(0, 3, "UPDATE");
+        - delay: 1s
+        - lambda: |-
+            id(lcd).clear();        
+
+    humidity:
+      name: "Wilgotność"
+      id: wilgotnosc
+    update_interval: 30s
+
+
+  - platform: wifi_signal
+    name: "Sygnał WiFi"
+    update_interval: 120s
